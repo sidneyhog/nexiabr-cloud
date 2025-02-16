@@ -1,0 +1,62 @@
+version: "3.7"
+
+##########
+
+# Entrar no conteiner do krayin e executa
+
+# cd laravel-crm
+
+# php artisan krayin-crm:install
+
+# copiar o arquivo AppServiceProvider.php para /var/lib/docker/volumes/krayin_data/_data/laravel-crm/app/Providers
+
+# copar o arquivo app.php para /var/lib/docker/volumes/krayin_data/_data/laravel-crm/packages/Webkul/Admin/src/Resources/lang/en
+
+# php artisan config:clear
+
+# php artisan config:cache
+
+# Editar a logo em /var/lib/docker/volumes/krayin_data/_data/laravel-crm/public/admin/build/assets
+
+# Substitua os arquivos: logo-0db24d41.svg e o favicon: favicon-a99d4e55.ico
+
+########################
+
+services:
+
+  krayin:
+    image: webkul/krayin:2.0.5
+    volumes:
+      - krayin_data:/var/www/html/
+    #ports:
+    #  - 2020:80
+    networks:
+      - network_public
+    environment:
+      - krayin_PUBLIC_URL=https://crm.nexiabr.com
+      - krayin_CADDY_ADDRESSES=:80
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.krayin.rule=Host(`crm.nexiabr.com`)"
+        - "traefik.http.routers.krayin.entrypoints=websecure"
+        - "traefik.http.routers.krayin.tls=true"
+        - "traefik.http.routers.krayin.tls.certresolver=letsencryptresolver"
+        - "traefik.http.services.krayin.loadbalancer.server.port=80"
+        - "traefik.http.middlewares.krayin-headers.headers.customrequestheaders.X-Forwarded-Proto=https"
+        - "traefik.http.routers.krayin.middlewares=krayin-headers"
+
+networks:
+  network_public:
+    external: true
+    name: network_public
+
+volumes:
+  krayin_data:
+    external: true
+    name: krayin_data
