@@ -13,20 +13,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      # Adicionando a VPS ao arquivo known_hosts
+      - name: Add VPS to known_hosts
+        run: |
+          ssh-keyscan -H 156.67.83.29 >> ~/.ssh/known_hosts
+
       # Configurar chave SSH para acesso à VPS
       - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.5.3
         with:
           ssh-private-key: ${{ secrets.SSH_KEY_CONTABO_NEXIABR }}
 
-      # Adicionar VPS ao known_hosts
-      - name: Add VPS to known_hosts
-        run: ssh-keyscan -H 156.67.83.29 >> ~/.ssh/known_hosts
-
       # Configuração inicial da VPS
       - name: Initial VPS setup
         run: |
           ssh -o StrictHostKeyChecking=no root@156.67.83.29 << 'EOF'
+            export DEBIAN_FRONTEND=noninteractive  # Força o modo não interativo
             sudo apt-get update -y
             sudo apt-get install -y apparmor-utils
             hostnamectl set-hostname nexia
@@ -38,11 +40,13 @@ jobs:
 
       # Deploy Traefik stack
       - name: Deploy Traefik stack
-        run: ssh root@156.67.83.29 "docker stack deploy --prune --resolve-image always -c /root/stacks/traefik.yaml traefik"
+        run: |
+          ssh root@156.67.83.29 "docker stack deploy --prune --resolve-image always -c /root/stacks/traefik.yaml traefik"
 
       # Deploy Portainer stack
       - name: Deploy Portainer stack
-        run: ssh root@156.67.83.29 "docker stack deploy --prune --resolve-image always -c /root/stacks/portainer.yaml portainer"
+        run: |
+          ssh root@156.67.83.29 "docker stack deploy --prune --resolve-image always -c /root/stacks/portainer.yaml portainer"
 
       # Esperar o Portainer estar pronto antes de configurar
       - name: Wait for Portainer to be ready
