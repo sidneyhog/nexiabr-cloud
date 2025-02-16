@@ -3,7 +3,7 @@ name: Setup VPS and Deploy Stack
 on:
   push:
     branches:
-      - main  # Disparará o fluxo sempre que houver um push na branch main
+      - main
 
 jobs:
   setup-vps:
@@ -19,40 +19,43 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_KEY_CONTABO_NEXIABR }}
 
-      # Comandos para configurar a VPS (atualização, instalação do Docker, etc.)
+      # Adicionar VPS ao known_hosts
+      - name: Add VPS to known_hosts
+        run: ssh-keyscan -H 156.67.83.29 >> ~/.ssh/known_hosts
+
+      # Configuração inicial da VPS
       - name: Initial VPS setup
         run: |
-          ssh root@156.67.83.29 "sudo apt-get update -y"
-          ssh root@156.67.83.29 "sudo apt-get install -y apparmor-utils"
-          ssh root@156.67.83.29 "hostnamectl set-hostname nexia"
-          ssh root@156.67.83.29 "sed -i 's/localhost/nexiabr/g' /etc/hosts"
-          ssh root@156.67.83.29 "curl -fsSL https://get.docker.com | bash"
-          ssh root@156.67.83.29 "docker swarm init"
-          ssh root@156.67.83.29 "docker network create --driver=overlay network_nexiabr"
+          ssh -o StrictHostKeyChecking=no root@156.67.83.29 << 'EOF'
+            sudo apt-get update -y
+            sudo apt-get install -y apparmor-utils
+            hostnamectl set-hostname nexia
+            sed -i 's/localhost/nexiabr/g' /etc/hosts
+            curl -fsSL https://get.docker.com | bash
+            docker swarm init
+            docker network create --driver=overlay network_nexiabr
+          EOF
 
       # Deploy Traefik stack
       - name: Deploy Traefik stack
-        run: |
-          ssh root@156.67.83.29 "docker stack deploy --prune --resolve-image always -c /path/to/traefik.yaml traefik"
-      
-            # Deploy Portainer stack diretamente na VPS
-      - name: Deploy Portainer stack
-        run: |
-          ssh root@156.67.83.29 "docker stack deploy --prune --resolve-image always -c /root/stacks/portainer.yaml portainer"
+        run: ssh root@156.67.83.29 "docker stack deploy --prune --resolve-image always -c /root/stacks/traefik.yaml traefik"
 
-      # Esperar o Portainer estar pronto antes de continuar
+      # Deploy Portainer stack
+      - name: Deploy Portainer stack
+        run: ssh root@156.67.83.29 "docker stack deploy --prune --resolve-image always -c /root/stacks/portainer.yaml portainer"
+
+      # Esperar o Portainer estar pronto antes de configurar
       - name: Wait for Portainer to be ready
         run: |
-          sleep 30  # Aguarda 30 segundos para garantir que o Portainer esteja disponível.
+          echo "Aguardando o Portainer iniciar..."
+          sleep 60  # Aguarda 60 segundos para garantir que o Portainer esteja disponível
 
-      # Configurar a conta de admin via API
+      # Criar conta admin do Portainer via API
       - name: Create admin account for Portainer
         run: |
-          # Chamar a API do Portainer para criar um usuário admin
-          curl -X POST -H "Content-Type: application/json" \
-            -d '{"Username": "admin", "Password": "your_admin_password"}' \
-            http://156.67.83.29:9000/api/auth
+          echo "Criando conta admin no Portainer..."
+          TOKEN=$(curl -s -X POST -H "Content-Type: application/json" \
+            -d '{"Username": "admin", "Password": "'"${{ secrets.SENHA_PORTAINER }}"'"}' \
+            http://156.67.83.29:9000/api/users/admin/init | jq -r .jwt)
 
-          # Obter o token de autenticação
-          export TOKEN=$(curl -s -X POST -d '{"Username":"admin", "Password":"${{ secrets.SENHA_PORTAINER }}"}' http://156.67.83.29:9000/api/auth | jq -r .jwt)
           echo "TOKEN=$TOKEN" >> $GITHUB_ENV
