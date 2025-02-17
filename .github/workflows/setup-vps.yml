@@ -16,6 +16,7 @@ jobs:
       # Adicionando a VPS ao arquivo known_hosts
       - name: Add VPS to known_hosts
         run: |
+          mkdir -p ~/.ssh  # Cria o diretório caso não exista
           ssh-keyscan -H 156.67.83.29 >> ~/.ssh/known_hosts
 
       # Configurar chave SSH para acesso à VPS
