@@ -19,11 +19,12 @@ jobs:
           mkdir -p ~/.ssh  # Cria o diretório caso não exista
           ssh-keyscan -H 156.67.83.29 >> ~/.ssh/known_hosts
 
-      # Configurar chave SSH para acesso à VPS
-      - name: Set up SSH key
-        uses: webfactory/ssh-agent@v0.5.3
-        with:
-          ssh-private-key: ${{ secrets.SSH_KEY_CONTABO_NEXIABR }}
+          - name: Set up SSH key
+          run: |
+            echo "$SSH_KEY_CONTABO_NEXIABR" | tr -d '\r' > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh-add ~/.ssh/id_rsa
+        
 
       # Configuração inicial da VPS
       - name: Initial VPS setup
