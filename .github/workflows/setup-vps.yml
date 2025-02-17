@@ -13,14 +13,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      # Configurando chave SSH
+      # Configuração do agente SSH com chave privada
       - name: Set up SSH key
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY_CONTABO_NEXIABR" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-add ~/.ssh/id_rsa
-          
+
+      # Iniciar agente SSH e adicionar a chave
+      - name: Start SSH agent and add key
+        run: |
+          eval "$(ssh-agent -s)"  # Inicia o agente SSH
+          ssh-add ~/.ssh/id_rsa    # Adiciona a chave privada ao agente SSH
+
       # Adicionando a VPS ao arquivo known_hosts
       - name: Add VPS to known_hosts
         run: |
